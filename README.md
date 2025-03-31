@@ -73,13 +73,11 @@ This will launch the Tkinter-based GUI where you can:
 
 ```
 📁 Attendance-System-Through-Face-Recognition
-│── main.py                 # Main script to run the app
+│── main.py                  # Main script to run the app
 │── requirements.txt         # Dependencies list
-│── dataset/                 # Folder to store registered face images
-│── models/                  # Pre-trained models for face detection
+│── StudentDetails/          # Folder to store registered face images
+│── TrainingImage/           # Pre-trained models for face detection
 │── attendance.csv           # Attendance records
-│── gui/                     # Tkinter GUI components
-│── utils/                   # Utility functions for processing
 │── README.md                # Project documentation
 ```
 
