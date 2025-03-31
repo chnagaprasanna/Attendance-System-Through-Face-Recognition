@@ -1,9 +1,10 @@
-############################################# IMPORTING ################################################
+# IMPORTING MODULES
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox as mess
 import tkinter.simpledialog as tsd
-import cv2,os
+import cv2
+import os
 import csv
 import numpy as np
 from PIL import Image
@@ -11,25 +12,25 @@ import pandas as pd
 import datetime
 import time
 
-############################################# FUNCTIONS ################################################
+# FUNCTIONS 
 def assure_path_exists(path):
     dir = os.path.dirname(path)
     if not os.path.exists(dir):
         os.makedirs(dir)
 
-##################################################################################
+
 
 def tick():
     time_string = time.strftime('%H:%M:%S')
     clock.config(text=time_string)
     clock.after(200,tick)
 
-###################################################################################
+
 
 def contact():
     mess._show(title='Contact us', message="Please contact us on : 'prassu1402@gmailcom' ")
 
-###################################################################################
+
 
 def check_haarcascadefile():
     exists = os.path.isfile("haarcascade_frontalface_default.xml")
@@ -39,7 +40,7 @@ def check_haarcascadefile():
         mess._show(title='Some file missing', message='Please contact us for help')
         window.destroy()
 
-###################################################################################
+
 
 def save_pass():
     assure_path_exists("TrainingImageLabel/")
@@ -73,7 +74,7 @@ def save_pass():
     mess._show(title='Password Changed', message='Password changed successfully!!')
     master.destroy()
 
-###################################################################################
+
 
 def change_pass():
     global master
@@ -103,7 +104,7 @@ def change_pass():
     save1.place(x=10, y=120)
     master.mainloop()
 
-#####################################################################################
+
 
 def psw():
     assure_path_exists("TrainingImageLabel/")
@@ -128,7 +129,7 @@ def psw():
     else:
         mess._show(title='Wrong Password', message='You have entered wrong password')
 
-######################################################################################
+
 
 def clear():
     txt.delete(0, 'end')
@@ -141,7 +142,7 @@ def clear2():
     res = "1)Take Images  >>>  2)Save Profile"
     message1.configure(text=res)
 
-#######################################################################################
+
 
 def TakeImages():
     check_haarcascadefile()
@@ -203,7 +204,7 @@ def TakeImages():
             res = "Enter Correct name"
             message.configure(text=res)
 
-########################################################################################
+
 
 def TrainImages():
     check_haarcascadefile()
@@ -222,7 +223,7 @@ def TrainImages():
     message1.configure(text=res)
     message.configure(text='Total Registrations till now  : ' + str(ID[0]))
 
-############################################################################################3
+
 
 def getImagesAndLabels(path):
     # get the path of all the files in the folder
@@ -244,95 +245,85 @@ def getImagesAndLabels(path):
         Ids.append(ID)
     return faces, Ids
 
-###########################################################################################
+
 
 def TrackImages():
     check_haarcascadefile()
     assure_path_exists("Attendance/")
     assure_path_exists("StudentDetails/")
+
     for k in tv.get_children():
         tv.delete(k)
-    msg = ''
-    i = 0
-    j = 0
-    recognizer = cv2.face.LBPHFaceRecognizer_create()  # cv2.createLBPHFaceRecognizer()
-    exists3 = os.path.isfile("TrainingImageLabel\Trainner.yml")
-    if exists3:
-        recognizer.read("TrainingImageLabel\Trainner.yml")
-    else:
+
+    recognizer = cv2.face.LBPHFaceRecognizer_create()
+    if not os.path.isfile("TrainingImageLabel/Trainner.yml"):
         mess._show(title='Data Missing', message='Please click on Save Profile to reset data!!')
         return
-    harcascadePath = "haarcascade_frontalface_default.xml"
-    faceCascade = cv2.CascadeClassifier(harcascadePath)
+
+    recognizer.read("TrainingImageLabel/Trainner.yml")
+    faceCascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 
     cam = cv2.VideoCapture(0)
     font = cv2.FONT_HERSHEY_SIMPLEX
-    col_names = ['Id', '', 'Name', '', 'Date', '', 'Time']
-    exists1 = os.path.isfile("StudentDetails\StudentDetails.csv")
-    if exists1:
-        df = pd.read_csv("StudentDetails\StudentDetails.csv")
-    else:
-        mess._show(title='Details Missing', message='Students details are missing, please check!')
+
+    if not os.path.isfile("StudentDetails/StudentDetails.csv"):
+        mess._show(title='Details Missing', message='Student details are missing, please check!')
         cam.release()
         cv2.destroyAllWindows()
-        window.destroy()
+        return  
+
+    df = pd.read_csv("StudentDetails/StudentDetails.csv")
+    
+    recorded_ids = set()  # Track which users have been recorded
 
     while True:
         ret, im = cam.read()
         gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
         faces = faceCascade.detectMultiScale(gray, 1.2, 5)
+
         for (x, y, w, h) in faces:
             cv2.rectangle(im, (x, y), (x + w, y + h), (225, 0, 0), 2)
             serial, conf = recognizer.predict(gray[y:y + h, x:x + w])
-            if (conf < 50):
-                ts = time.time()
-                date = datetime.datetime.fromtimestamp(ts).strftime('%d-%m-%Y')
-                timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
-                aa = df.loc[df['SERIAL NO.'] == serial]['NAME'].values
-                ID = df.loc[df['SERIAL NO.'] == serial]['ID'].values
-                ID = str(ID)
-                ID = ID[1:-1]
-                bb = str(aa)
-                bb = bb[2:-2]
-                attendance = [str(ID), '', bb, '', str(date), '', str(timeStamp)]
 
+            if conf < 50:
+                ID = str(df.loc[df['SERIAL NO.'] == serial]['ID'].values[0])
+                Name = str(df.loc[df['SERIAL NO.'] == serial]['NAME'].values[0])
+
+                if ID not in recorded_ids:  # Store only once per user
+                    ts = time.time()
+                    date = datetime.datetime.fromtimestamp(ts).strftime('%d-%m-%Y')
+                    timeStamp = datetime.datetime.fromtimestamp(ts).strftime('%H:%M:%S')
+                    attendance = [ID, '', Name, '', date, '', timeStamp]
+
+                    save_attendance(attendance, date)  # Save attendance
+                    recorded_ids.add(ID)  # Mark as recorded
+                
             else:
-                Id = 'Unknown'
-                bb = str(Id)
-            cv2.putText(im, str(bb), (x, y + h), font, 1, (255, 255, 255), 2)
-        cv2.imshow('Taking Attendance', im)
-        if (cv2.waitKey(1) == ord('q')):
-            break
+                Name = "Unknown"
 
-    ts = time.time()
-    date = datetime.datetime.fromtimestamp(ts).strftime('%d-%m-%Y')
-    exists = os.path.isfile("Attendance\Attendance_" + date + ".csv")
-    if exists:
-        with open("Attendance\Attendance_" + date + ".csv", 'a+') as csvFile1:
-            writer = csv.writer(csvFile1)
-            writer.writerow(attendance)
-        csvFile1.close()
-    else:
-        with open("Attendance\Attendance_" + date + ".csv", 'a+') as csvFile1:
-            writer = csv.writer(csvFile1)
-            writer.writerow(col_names)
-            writer.writerow(attendance)
-        csvFile1.close()
-    with open("Attendance\Attendance_" + date + ".csv", 'r') as csvFile1:
-        reader1 = csv.reader(csvFile1)
-        for lines in reader1:
-            if len(lines) > 0:
-                i = i + 1
-                if (i > 1):
-                    if (i % 2 != 0):
-                        iidd = str(lines[0]) + '   '
-                        tv.insert('', 0, text=iidd, values=(str(lines[2]), str(lines[4]), str(lines[6])))
-    csvFile1.close()
+            cv2.putText(im, Name, (x, y + h), font, 1, (255, 255, 255), 2)
+
+        cv2.imshow('Taking Attendance', im)
+        if cv2.waitKey(1) == ord('q'):
+            break  # Exit loop on 'q' press
+
     cam.release()
     cv2.destroyAllWindows()
 
+def save_attendance(attendance, date):
+    """ Save attendance to CSV file and update UI """
+    file_path = f"Attendance/Attendance_{date}.csv"
+    file_exists = os.path.isfile(file_path)
 
-######################################## USED STUFFS ############################################
+    with open(file_path, 'a+', newline='') as csvFile:
+        writer = csv.writer(csvFile)
+        if not file_exists:
+            writer.writerow(['Id', '', 'Name', '', 'Date', '', 'Time'])  # Add headers if file is new
+        writer.writerow(attendance)  # Save attendance
+
+    tv.insert('', 0, text=attendance[0], values=(attendance[2], attendance[4], attendance[6])) 
+
+#USED STUFFS
     
 global key
 key = ''
@@ -355,7 +346,7 @@ mont={'01':'January',
       '12':'December'
       }
 
-######################################## GUI FRONT-END ###########################################
+#GUI FRONTEND
 
 window = tk.Tk()
 window.geometry("1280x720")
@@ -425,7 +416,7 @@ else:
     res = 0
 message.configure(text='Total Registrations till now  : '+str(res))
 
-##################### MENUBAR #################################
+# MENUBAR 
 
 menubar = tk.Menu(window,relief='ridge')
 filemenu = tk.Menu(menubar,tearoff=0)
@@ -434,7 +425,7 @@ filemenu.add_command(label='Contact Us', command = contact)
 filemenu.add_command(label='Exit',command = window.destroy)
 menubar.add_cascade(label='Help',font=('times', 29, ' bold '),menu=filemenu)
 
-################## TREEVIEW ATTENDANCE TABLE ####################
+# TREEVIEW ATTENDANCE TABLE 
 
 tv= ttk.Treeview(frame1,height =13,columns = ('name','date','time'))
 tv.column('#0',width=82)
@@ -447,13 +438,13 @@ tv.heading('name',text ='NAME')
 tv.heading('date',text ='DATE')
 tv.heading('time',text ='TIME')
 
-###################### SCROLLBAR ################################
+# SCROLLBAR 
 
 scroll=ttk.Scrollbar(frame1,orient='vertical',command=tv.yview)
 scroll.grid(row=2,column=4,padx=(0,100),pady=(150,0),sticky='ns')
 tv.configure(yscrollcommand=scroll.set)
 
-###################### BUTTONS ##################################
+# BUTTONS 
 
 clearButton = tk.Button(frame2, text="Clear", command=clear  ,fg="black"  ,bg="#ea2a2a"  ,width=11 ,activebackground = "white" ,font=('times', 11, ' bold '))
 clearButton.place(x=335, y=86)
@@ -468,9 +459,6 @@ trackImg.place(x=30,y=50)
 quitWindow = tk.Button(frame1, text="Quit", command=window.destroy  ,fg="black"  ,bg="red"  ,width=35 ,height=1, activebackground = "white" ,font=('times', 15, ' bold '))
 quitWindow.place(x=30, y=450)
 
-##################### END ######################################
 
 window.configure(menu=menubar)
 window.mainloop()
-
-####################################################################################################
